@@ -127,9 +127,7 @@ def get_ai_extensions(url, headers, api_type, api_key, api_base_url, max_extensi
         return parse_json_response(response.choices[0].message.content)
     elif api_type in ('anthropic', 'zai'):
         client = create_anthropic_client(api_key, api_base_url)
-        model = "claude-sonnet-4-20250514"
-        if api_type == 'zai':
-            model = os.getenv('ZAI_MODEL', 'claude-sonnet-4-20250514')
+        model = os.getenv('ZAI_MODEL', 'claude-sonnet-4')
         message = client.messages.create(
             model=model,
             max_tokens=1000,
@@ -207,9 +205,7 @@ def get_contextual_wordlist(url, headers, api_type, api_key, api_base_url, max_s
 
     elif api_type in ('anthropic', 'zai'):
         client = create_anthropic_client(api_key, api_base_url)
-        model = "claude-sonnet-4-20250514"
-        if api_type == 'zai':
-            model = os.getenv('ZAI_MODEL', 'claude-sonnet-4-20250514')
+        model = os.getenv('ZAI_MODEL', 'claude-sonnet-4')
         message = client.messages.create(
             model=model,
             max_tokens=10000,
