@@ -5,6 +5,7 @@ import os
 import subprocess
 import requests
 import json
+import re
 from openai import OpenAI
 import anthropic
 from urllib.parse import urlparse
@@ -15,12 +16,18 @@ from bs4 import BeautifulSoup
 def get_api_key():
     openai_key = os.getenv('OPENAI_API_KEY')
     anthropic_key = os.getenv('ANTHROPIC_API_KEY')
-    if anthropic_key:
-        return ('anthropic', anthropic_key)
+    # z.ai uses ANTHROPIC_AUTH_TOKEN + ANTHROPIC_BASE_URL
+    zai_key = os.getenv('ANTHROPIC_AUTH_TOKEN')
+    zai_base_url = os.getenv('ANTHROPIC_BASE_URL')
+
+    if zai_key and zai_base_url:
+        return ('zai', zai_key, zai_base_url)
+    elif anthropic_key:
+        return ('anthropic', anthropic_key, None)
     elif openai_key:
-        return ('openai', openai_key)
+        return ('openai', openai_key, None)
     else:
-        raise ValueError("No API key found. Please set OPENAI_API_KEY or ANTHROPIC_API_KEY.")
+        raise ValueError("No API key found. Please set ANTHROPIC_AUTH_TOKEN+ANTHROPIC_BASE_URL (z.ai), ANTHROPIC_API_KEY, or OPENAI_API_KEY.")
 
 
 def get_response(url):
@@ -56,13 +63,34 @@ def get_response(url):
 
 def get_headers(url):
     try:
-        response = requests.head(url, allow_redirects=True)
+        response = requests.head(url, allow_redirects=True, timeout=10)
         return dict(response.headers)
+    except requests.TooManyRedirects:
+        try:
+            response = requests.get(url, allow_redirects=False, timeout=10)
+            return dict(response.headers)
+        except requests.RequestException as e:
+            print(f"Error fetching headers: {e}")
+            return {"Header": "Error fetching headers."}
     except requests.RequestException as e:
         print(f"Error fetching headers: {e}")
         return {"Header": "Error fetching headers."}
 
-def get_ai_extensions(url, headers, api_type, api_key, max_extensions):
+def create_anthropic_client(api_key, base_url=None):
+    if base_url:
+        return anthropic.Anthropic(api_key=api_key, base_url=base_url)
+    return anthropic.Anthropic(api_key=api_key)
+
+def parse_json_response(text):
+    """Parse JSON from AI response, stripping markdown code blocks if present."""
+    text = text.strip()
+    # Strip markdown code block wrapping like ```json ... ```
+    match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
+    if match:
+        text = match.group(1)
+    return json.loads(text.strip())
+
+def get_ai_extensions(url, headers, api_type, api_key, api_base_url, max_extensions):
     prompt = f"""
     Given the following URL and HTTP headers, suggest the most likely file extensions for fuzzing this endpoint.
     Respond with a JSON object containing a list of extensions. The response will be parsed with json.loads(),
@@ -96,11 +124,14 @@ def get_ai_extensions(url, headers, api_type, api_key, max_extensions):
                 {"role": "user", "content": prompt}
             ]
         )
-        return json.loads(response.choices[0].message.content.strip())
-    elif api_type == 'anthropic':
-        client = anthropic.Anthropic(api_key=api_key)
+        return parse_json_response(response.choices[0].message.content)
+    elif api_type in ('anthropic', 'zai'):
+        client = create_anthropic_client(api_key, api_base_url)
+        model = "claude-sonnet-4-20250514"
+        if api_type == 'zai':
+            model = os.getenv('ZAI_MODEL', 'claude-sonnet-4-20250514')
         message = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=model,
             max_tokens=1000,
             temperature=0,
             system="You are a helpful assistant that suggests file extensions for fuzzing based on URL and headers.",
@@ -110,9 +141,9 @@ def get_ai_extensions(url, headers, api_type, api_key, max_extensions):
         )
 
 
-        return json.loads(message.content[0].text)
+        return parse_json_response(message.content[0].text)
 
-def get_contextual_wordlist(url, headers, api_type, api_key, max_size, cookies=None, content=None):
+def get_contextual_wordlist(url, headers, api_type, api_key, api_base_url, max_size, cookies=None, content=None):
     prompt = f"""
     Given the following URL and HTTP headers, suggest the most likely contextual wordlist for content discovery on this endpoint.
     Be as extensive as possible, provide the maximum number of directories and files that make sense for the endpoint.
@@ -172,12 +203,15 @@ def get_contextual_wordlist(url, headers, api_type, api_key, max_size, cookies=N
                 {"role": "user", "content": prompt}
             ]
         )
-        return json.loads(response.choices[0].message.content.strip())
+        return parse_json_response(response.choices[0].message.content)
 
-    elif api_type == 'anthropic':
-        client = anthropic.Anthropic(api_key=api_key)
+    elif api_type in ('anthropic', 'zai'):
+        client = create_anthropic_client(api_key, api_base_url)
+        model = "claude-sonnet-4-20250514"
+        if api_type == 'zai':
+            model = os.getenv('ZAI_MODEL', 'claude-sonnet-4-20250514')
         message = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=model,
             max_tokens=10000,
             temperature=0,
             system="You are a helpful assistant that suggests wordlists for fuzzing based on URL and headers.",
@@ -186,7 +220,7 @@ def get_contextual_wordlist(url, headers, api_type, api_key, max_size, cookies=N
             ]
         )
 
-        return json.loads(message.content[0].text)
+        return parse_json_response(message.content[0].text)
 
 def main():
     parser = argparse.ArgumentParser(description='ffufai - AI-powered ffuf wrapper')
@@ -214,7 +248,7 @@ def main():
 
     headers = get_headers(base_url)
 
-    api_type, api_key = get_api_key()
+    api_type, api_key, api_base_url = get_api_key()
 
 
     if args.wordlists:
@@ -229,10 +263,10 @@ def main():
                 headers = response['headers']
                 cookies = response['cookies']
                 content = response['content']
-                wordlists_data = get_contextual_wordlist(url, headers, api_type, api_key, size, cookies=cookies, content=content)
+                wordlists_data = get_contextual_wordlist(url, headers, api_type, api_key, api_base_url, size, cookies=cookies, content=content)
 
             else:
-                wordlists_data = get_contextual_wordlist(url, headers, api_type, api_key, size)
+                wordlists_data = get_contextual_wordlist(url, headers, api_type, api_key, api_base_url, size)
 
             print(wordlists_data)
             wordlist = '\n'.join(wordlists_data['wordlist'])
@@ -251,7 +285,7 @@ def main():
 
     else:
         try:
-            extensions_data = get_ai_extensions(url, headers, api_type, api_key, args.max_extensions)
+            extensions_data = get_ai_extensions(url, headers, api_type, api_key, api_base_url, args.max_extensions)
             print(extensions_data)
             extensions = ','.join(extensions_data['extensions'][:args.max_extensions])
 
