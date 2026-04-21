@@ -133,10 +133,11 @@ pip3 install requests openai anthropic beautifulsoup4
 
 Pilih salah satu provider AI di bawah. Tool akan otomatis mendeteksi API key mana yang tersedia.
 
-#### Opsi A: Z.ai (Direkomendasikan - gratis untuk pengguna Indonesia)
+#### Opsi A: Z.ai (Direkomendasikan untuk pengguna Indonesia)
 
-1. Daftar dan dapatkan API key di: https://z.ai/manage-apikey/apikey-list
-2. Set environment variable:
+1. Dapatkan API key z.ai di: https://z.ai/manage-apikey/apikey-list
+2. Atau beli API key murah via: https://apikuy.my.id/
+3. Set environment variable:
 
 ```bash
 export ANTHROPIC_AUTH_TOKEN='paste-api-key-kamu-disini'
