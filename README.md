@@ -15,6 +15,20 @@
 
 ---
 
+## Apa Itu ffufai-zai?
+
+Secara sederhana, ffufai-zai melakukan hal berikut:
+
+1. Kamu memberikan URL target yang ingin di-fuzz
+2. Tool mengambil HTTP headers dari target tersebut
+3. Tool mengirim informasi target ke AI (z.ai / Anthropic / OpenAI)
+4. AI menganalisis dan menghasilkan:
+   - **Extension file** yang relevan (misalnya `.php`, `.bak`, `.json`) - atau -
+   - **Wordlist** berisi daftar path/file yang kemungkinan ada di server
+5. Hasilnya langsung diteruskan ke `ffuf` untuk fuzzing secara otomatis
+
+**Keuntungan:** Kamu tidak perlu menebak extension atau wordlist secara manual - AI yang menganalisis teknologi server dan konteks target untuk memberikan saran yang paling relevan.
+
 ## Fitur
 
 - Integrasi langsung dengan ffuf
@@ -22,166 +36,345 @@
 - **Extension Suggestion** - AI menganalisis target dan menyarankan extension file yang relevan
 - **Wordlist Generation** - AI membuat wordlist kontekstual berdasarkan teknologi dan konten target
 - Semua parameter ffuf diteruskan langsung
-- Menangani markdown code block wrapping dari response AI
-- Handle redirect loop pada target yang menggunakan SPA
+- Handle redirect loop pada target SPA
 
-## Prerequisites
+---
 
-- Python 3.6+
-- [ffuf](https://github.com/ffuf/ffuf) (terinstall dan bisa diakses di PATH)
-- Salah satu API key: z.ai, Anthropic, atau OpenAI
+## Panduan Instalasi Lengkap
 
-## Instalasi
+> Ikuti langkah-langkah berikut satu per satu. Pastikan setiap langkah berhasil sebelum lanjut ke berikutnya.
 
-### 1. Clone Repository
+### Langkah 1: Install Python 3
+
+Cek apakah Python 3 sudah terinstall:
+
+```bash
+python3 --version
+```
+
+Jika belum ada, install terlebih dahulu:
+
+```bash
+# Ubuntu/Debian
+sudo apt update && sudo apt install python3 python3-pip -y
+
+# macOS
+brew install python3
+
+# Arch Linux
+sudo pacman -S python python-pip
+```
+
+### Langkah 2: Install Go (untuk ffuf)
+
+Cek apakah Go sudah terinstall:
+
+```bash
+go version
+```
+
+Jika belum ada, install Go:
+
+```bash
+# Ubuntu/Debian
+sudo apt install golang-go -y
+
+# macOS
+brew install go
+
+# Atau download manual dari https://go.dev/dl/
+```
+
+### Langkah 3: Install ffuf
+
+ffuf adalah tool fuzzing yang menjadi engine utama ffufai-zai.
+
+```bash
+go install github.com/ffuf/ffuf/v2@latest
+```
+
+Tambahkan Go bin ke PATH agar `ffuf` bisa dipanggil dari mana saja:
+
+```bash
+echo 'export PATH="$HOME/go/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Verifikasi ffuf sudah terinstall:
+
+```bash
+ffuf -V
+```
+
+Harusnya muncul output seperti: `ffuf version: 2.1.0-dev`
+
+> **Alternatif:** Jika tidak mau install Go, download binary ffuf langsung dari [ffuf releases](https://github.com/ffuf/ffuf/releases) dan taruh di PATH.
+
+### Langkah 4: Clone Repository
 
 ```bash
 git clone https://github.com/Re-xist/ffufai-zai.git
 cd ffufai-zai
 ```
 
-### 2. Install Dependencies
+### Langkah 5: Install Python Dependencies
 
 ```bash
 pip install requests openai anthropic beautifulsoup4
 ```
 
-### 3. Install ffuf
+Jika `pip` tidak dikenali, coba:
 
-Menggunakan Go:
 ```bash
-go install github.com/ffuf/ffuf/v2@latest
+pip3 install requests openai anthropic beautifulsoup4
 ```
 
-Atau download binary dari [ffuf releases](https://github.com/ffuf/ffuf/releases).
+### Langkah 6: Setup API Key
 
-Pastikan ffuf bisa diakses:
-```bash
-ffuf -V
-```
+Pilih salah satu provider AI di bawah. Tool akan otomatis mendeteksi API key mana yang tersedia.
 
-### 4. Setup API Key
+#### Opsi A: Z.ai (Direkomendasikan - gratis untuk pengguna Indonesia)
 
-Pilih salah satu provider:
-
-#### Z.ai (Direkomendasikan untuk pengguna Indonesia)
+1. Daftar dan dapatkan API key di: https://z.ai/manage-apikey/apikey-list
+2. Set environment variable:
 
 ```bash
-export ANTHROPIC_AUTH_TOKEN='api-key-z-ai-kamu'
+export ANTHROPIC_AUTH_TOKEN='paste-api-key-kamu-disini'
 export ANTHROPIC_BASE_URL='https://api.z.ai/api/anthropic'
 ```
 
-Dapatkan API key di: https://z.ai/manage-apikey/apikey-list
-
-#### Anthropic (Claude)
+#### Opsi B: Anthropic (Claude)
 
 ```bash
-export ANTHROPIC_API_KEY='api-key-anthropic-kamu'
+export ANTHROPIC_API_KEY='paste-api-key-anthropic-kamu-disini'
 ```
 
-#### OpenAI (GPT)
+#### Opsi C: OpenAI (GPT)
 
 ```bash
-export OPENAI_API_KEY='api-key-openai-kamu'
+export OPENAI_API_KEY='paste-api-key-openai-kamu-disini'
 ```
 
-Buat permanen dengan menambahkan ke `~/.bashrc` atau `~/.zshrc`:
+**Buat API key permanen** (tidak hilang saat terminal ditutup):
+
 ```bash
+# Contoh untuk z.ai
 echo 'export ANTHROPIC_AUTH_TOKEN="api-key-kamu"' >> ~/.bashrc
 echo 'export ANTHROPIC_BASE_URL="https://api.z.ai/api/anthropic"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-### 5. (Opsional) Buat Symlink
+### Langkah 7: (Opsional) Buat Symlink
+
+Agar `ffufai` bisa dipanggil dari direktori mana saja:
 
 ```bash
 sudo ln -s $(pwd)/ffufai.py /usr/local/bin/ffufai
 ```
 
-## Cara Penggunaan
+Setelah ini kamu bisa pakai `ffufai` langsung tanpa `python3 ffufai.py`.
 
-### Mode Extension Suggestion (Default)
+### Langkah 8: Verifikasi Instalasi
 
-AI menganalisis URL + headers target, lalu menyarankan file extension untuk fuzzing. Extension ditambahkan otomatis ke flag `-e` ffuf.
+Jalankan perintah berikut untuk memastikan semuanya berjalan:
+
+```bash
+python3 ffufai.py --help
+```
+
+Harusnya muncul output:
+```
+usage: ffufai.py [-h] [--ffuf-path FFUF_PATH]
+                 [--max-extensions MAX_EXTENSIONS] [--wordlists]
+                 [--max-wordlist-size MAX_WORDLIST_SIZE] [--include-response]
+
+ffufai - AI-powered ffuf wrapper
+...
+```
+
+---
+
+## Cara Menggunakan
+
+ffufai-zai punya **2 mode** penggunaan:
+
+### Mode 1: Extension Suggestion (Default)
+
+**Kapan dipakai:** Kamu sudah punya wordlist file dan ingin AI menyarankan extension file yang relevan untuk ditambahkan ke fuzzing.
+
+**Cara kerja:** AI menganalisis URL + headers target, lalu menyarankan extension seperti `.php`, `.bak`, `.json`, dll. Extension ini otomatis ditambahkan ke ffuf.
 
 ```bash
 python3 ffufai.py -u https://target.com/FUZZ -w wordlist.txt
 ```
 
-Contoh output:
-```
-{'extensions': ['.json', '.js', '.bak', '.zip']}
-# ffuf akan dijalankan dengan -e .json,.js,.bak,.zip
+**Contoh nyata:**
+
+```bash
+python3 ffufai.py -u https://target.com/FUZZ -w /usr/share/seclists/Discovery/Web-Content/common.txt -mc all -c
 ```
 
-### Mode Wordlist Generation
+Output yang muncul:
+```
+{'extensions': ['.json', '.js', '.bak', '.sql']}
 
-AI membuat wordlist kontekstual berdasarkan analisis teknologi dan konteks target. Tidak perlu menyediakan file wordlist.
+        /'___\  /'___\           /'___\
+       /\ \__/ /\ \__/  __  __  /\ \__/
+       ...
+________________________________________________
+
+ :: URL              : https://target.com/FUZZ
+ :: Wordlist         : FUZZ: /usr/share/seclists/Discovery/Web-Content/common.txt
+ :: Extensions       : .json,.js,.bak,.sql
+________________________________________________
+...hasil fuzzing...
+```
+
+Artinya AI mendeteksi bahwa extension `.json`, `.js`, `.bak`, `.sql` paling relevan untuk target ini, lalu ffuf otomatis menjalankan fuzzing dengan extension tersebut.
+
+**Tambah jumlah extension:**
+
+```bash
+python3 ffufai.py --max-extensions 8 -u https://target.com/FUZZ -w wordlist.txt -mc all -c
+```
+
+### Mode 2: Wordlist Generation
+
+**Kapan dipakai:** Kamu tidak punya wordlist, atau ingin AI membuat wordlist yang spesifik untuk target berdasarkan teknologi dan konteksnya.
+
+**Cara kerja:** AI menganalisis URL, headers, dan (opsional) konten halaman target, lalu membuat daftar path/file yang kemungkinan ada. Tidak perlu file wordlist sama sekali.
 
 ```bash
 python3 ffufai.py --wordlists -u https://target.com/FUZZ -mc all -c
 ```
 
-Dengan ukuran wordlist custom (default: 200):
+**Contoh nyata:**
+
 ```bash
-python3 ffufai.py --wordlists --max-wordlist-size 50 -u https://target.com/FUZZ -mc all -c
+python3 ffufai.py --wordlists --max-wordlist-size 50 -u https://target.com/api/FUZZ -mc all -c
 ```
 
-Dengan response body sebagai konteks tambahan (lebih akurat, lebih banyak token):
+Output:
+```
+{'wordlist': ['api', 'v1', 'v2', 'users', 'auth', 'login', 'admin', ...]}
+
+        /'___\  /'___\
+       ...
+________________________________________________
+
+ :: URL              : https://target.com/api/FUZZ
+ :: Wordlist         : FUZZ: /tmp/tmpXXXXXX.txt
+________________________________________________
+
+admin                    [Status: 200, Size: 1234, Words: 45, Lines: 20]
+login                    [Status: 200, Size: 890, Words: 30, Lines: 15]
+v1                       [Status: 301, Size: 169, Words: 5, Lines: 8]
+```
+
+**Dengan konten halaman** (lebih akurat, memakai lebih banyak token):
+
 ```bash
 python3 ffufai.py --wordlists --include-response -u https://target.com/FUZZ -mc all -c
 ```
 
-### Contoh Penggunaan Lengkap
+### Tips: Target SPA (React, Vue, dll)
+
+Jika target adalah Single Page Application, semua path biasanya mengembalikan status 200 dengan ukuran yang sama. Gunakan `-fs` untuk memfilter:
 
 ```bash
-# Fuzzing dengan extension suggestion dan wordlist file
-python3 ffufai.py --max-extensions 6 -u https://target.com/FUZZ -w /path/to/wordlist.txt -mc all -c
+# -fs 10018 artinya: filter response yang ukurannya 10018 bytes (SPA catch-all)
+python3 ffufai.py --wordlists -u https://target.com/FUZZ -mc all -fs 10018 -c
+```
 
-# Fuzzing dengan AI-generated wordlist, filter SPA catch-all
-python3 ffufai.py --wordlists --max-wordlist-size 100 -u https://target.com/api/FUZZ -mc all -fs 10018 -c
+Cara mengetahui size yang harus difilter: jalankan tanpa `-fs` dulu, lihat size yang berulang-ulang, lalu tambahkan `-fs <size>`.
 
-# Fuzzing ke subdirectory
+---
+
+## Contoh Penggunaan Lengkap
+
+```bash
+# Extension suggestion dengan wordlist
+python3 ffufai.py -u https://target.com/FUZZ -w /path/to/wordlist.txt -mc all -c
+
+# Extension suggestion dengan lebih banyak extension
+python3 ffufai.py --max-extensions 8 -u https://target.com/FUZZ -w wordlist.txt -mc all -c
+
+# Wordlist generation (AI buat wordlist)
+python3 ffufai.py --wordlists -u https://target.com/FUZZ -mc all -c
+
+# Wordlist generation dengan ukuran custom
+python3 ffufai.py --wordlists --max-wordlist-size 100 -u https://target.com/FUZZ -mc all -c
+
+# Wordlist generation dengan konten halaman sebagai konteks
+python3 ffufai.py --wordlists --include-response -u https://target.com/FUZZ -mc all -c
+
+# Fuzzing subdirectory dengan AI wordlist
 python3 ffufai.py --wordlists -u https://target.com/static/js/FUZZ -mc all -c
 
-# Menggunakan ffuf di path custom
+# Fuzzing dengan filter size (SPA target)
+python3 ffufai.py --wordlists -u https://target.com/FUZZ -mc all -fs 10018 -c
+
+# ffuf di lokasi custom
 python3 ffufai.py --ffuf-path /home/user/go/bin/ffuf -u https://target.com/FUZZ -w wordlist.txt
 ```
 
-## Parameter
+---
 
-### Parameter Tambahan ffufai
+## Daftar Parameter
+
+### Parameter ffufai
 
 | Parameter | Default | Deskripsi |
 |---|---|---|
 | `--ffuf-path` | `ffuf` | Path ke binary ffuf |
 | `--max-extensions` | `4` | Jumlah maksimum extension yang disarankan AI |
-| `--wordlists` | - | Aktifkan mode wordlist generation (AI buat wordlist) |
+| `--wordlists` | - | Aktifkan mode wordlist generation |
 | `--max-wordlist-size` | `200` | Ukuran maks wordlist yang dihasilkan AI |
-| `--include-response` | - | Sertakan response body sebagai konteks tambahan |
+| `--include-response` | - | Sertakan response body sebagai konteks untuk AI |
 
 ### Parameter ffuf yang Sering Dipakai
 
-| Parameter | Deskripsi |
-|---|---|
-| `-u` | Target URL (wajib, harus mengandung `FUZZ`) |
-| `-w` | Path ke file wordlist |
-| `-mc` | Match HTTP status code (default: `200-299,301,302,307,401,403,405,500`) |
-| `-fc` | Filter HTTP status code |
-| `-fs` | Filter berdasarkan response size |
-| `-c` | Output berwarna |
-| `-v` | Verbose output |
-| `-t` | Jumlah thread concurrent (default: 40) |
+| Parameter | Deskripsi | Contoh |
+|---|---|---|
+| `-u` | Target URL, wajib mengandung `FUZZ` | `-u https://target.com/FUZZ` |
+| `-w` | Path ke file wordlist | `-w wordlist.txt` |
+| `-mc` | Match HTTP status code | `-mc all` atau `-mc 200,301` |
+| `-fc` | Filter (buang) HTTP status code | `-fc 404` |
+| `-fs` | Filter berdasarkan response size | `-fs 10018` |
+| `-c` | Output berwarna | `-c` |
+| `-v` | Verbose output (tampilkan full URL) | `-v` |
+| `-t` | Jumlah thread (default: 40) | `-t 100` |
+| `-o` | Simpan output ke file | `-o hasil.json` |
+| `-r` | Follow redirects | `-r` |
 
-Semua parameter ffuf lainnya bisa dipakai seperti biasa.
+Semua parameter ffuf lainnya bisa dipakai seperti biasa. Lihat `ffuf -h` untuk daftar lengkap.
+
+---
 
 ## Prioritas API Key
 
-Jika beberapa API key tersedia sekaligus, prioritasnya:
+Jika beberapa API key tersedia sekaligus, tool memakai prioritas:
 
-1. **z.ai** (`ANTHROPIC_AUTH_TOKEN` + `ANTHROPIC_BASE_URL`)
+1. **z.ai** (`ANTHROPIC_AUTH_TOKEN` + `ANTHROPIC_BASE_URL`) - diprioritaskan
 2. **Anthropic** (`ANTHROPIC_API_KEY`)
 3. **OpenAI** (`OPENAI_API_KEY`)
+
+---
+
+## Troubleshooting
+
+| Masalah | Solusi |
+|---|---|
+| `command not found: ffuf` | Install ffuf (Langkah 3) atau gunakan `--ffuf-path /path/ke/ffuf` |
+| `command not found: python3` | Install Python 3 (Langkah 1) |
+| `No module named 'openai'` | Jalankan `pip install requests openai anthropic beautifulsoup4` |
+| `No API key found` | Set environment variable API key (Langkah 6) |
+| `Error parsing AI response` | Response AI tidak valid, coba jalankan ulang |
+| `Too many redirects` | Tool sudah menangani otomatis. Pastikan URL target benar |
+| Semua response 200 size sama | Target adalah SPA. Tambahkan `-fs <size>` untuk filter |
+| `stat wordlist.txt: no such file` | File wordlist tidak ada. Gunakan mode `--wordlists` atau tentukan path yang benar |
+
+---
 
 ## Perubahan dari ffufai Original
 
@@ -190,18 +383,6 @@ Jika beberapa API key tersedia sekaligus, prioritasnya:
 - `create_anthropic_client()` - mendukung custom base URL untuk provider non-OpenAI
 - Fix redirect loop pada `get_headers()` dengan timeout dan fallback
 - Custom model via environment variable `ZAI_MODEL`
-
-## Troubleshooting
-
-| Masalah | Solusi |
-|---|---|
-| `command not found: ffuf` | Install ffuf atau gunakan `--ffuf-path` |
-| `command not found: python3` | Install Python 3 |
-| `No module named 'openai'` | Jalankan `pip install requests openai anthropic beautifulsoup4` |
-| `No API key found` | Set environment variable API key (lihat [Setup API Key](#4-setup-api-key)) |
-| `Error parsing AI response` | Response AI tidak valid, coba jalankan ulang |
-| `Too many redirects` | Tool sudah menangani ini otomatis, tapi pastikan URL target benar |
-| Semua response 200 size sama | Target adalah SPA, gunakan `-fs <size>` untuk filter catch-all |
 
 ## Credits
 
