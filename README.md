@@ -259,51 +259,11 @@ ffufai - AI-powered ffuf wrapper
 
 ffufai-zai punya **2 mode** penggunaan:
 
-### Mode 1: Extension Suggestion (Default)
+### Mode 1: AI Wordlist Generation (Rekomendasi)
 
-**Kapan dipakai:** Kamu sudah punya wordlist file dan ingin AI menyarankan extension file yang relevan untuk ditambahkan ke fuzzing.
+**Kapan dipakai:** Ingin langsung fuzzing tanpa repot cari wordlist. AI yang bikin wordlist yang sesuai target.
 
-**Cara kerja:** AI menganalisis URL + headers target, lalu menyarankan extension seperti `.php`, `.bak`, `.json`, dll. Extension ini otomatis ditambahkan ke ffuf.
-
-```bash
-python3 ffufai.py -u https://target.com/FUZZ -w wordlist.txt
-```
-
-**Contoh nyata:**
-
-```bash
-python3 ffufai.py -u https://target.com/FUZZ -w /usr/share/seclists/Discovery/Web-Content/common.txt -mc all -c
-```
-
-Output yang muncul:
-```
-{'extensions': ['.json', '.js', '.bak', '.sql']}
-
-        /'___\  /'___\           /'___\
-       /\ \__/ /\ \__/  __  __  /\ \__/
-       ...
-________________________________________________
-
- :: URL              : https://target.com/FUZZ
- :: Wordlist         : FUZZ: /usr/share/seclists/Discovery/Web-Content/common.txt
- :: Extensions       : .json,.js,.bak,.sql
-________________________________________________
-...hasil fuzzing...
-```
-
-Artinya AI mendeteksi bahwa extension `.json`, `.js`, `.bak`, `.sql` paling relevan untuk target ini, lalu ffuf otomatis menjalankan fuzzing dengan extension tersebut.
-
-**Tambah jumlah extension:**
-
-```bash
-python3 ffufai.py --max-extensions 8 -u https://target.com/FUZZ -w wordlist.txt -mc all -c
-```
-
-### Mode 2: Wordlist Generation
-
-**Kapan dipakai:** Kamu tidak punya wordlist, atau ingin AI membuat wordlist yang spesifik untuk target berdasarkan teknologi dan konteksnya.
-
-**Cara kerja:** AI menganalisis URL, headers, dan (opsional) konten halaman target, lalu membuat daftar path/file yang kemungkinan ada. Tidak perlu file wordlist sama sekali.
+**Cara kerja:** AI menganalisis URL, headers, dan (opsional) konten halaman target, lalu membuat daftar path/file yang kemungkinan ada. **Tidak perlu file wordlist sama sekali.**
 
 ```bash
 python3 ffufai.py --wordlists -u https://target.com/FUZZ -mc all -c
@@ -332,10 +292,62 @@ login                    [Status: 200, Size: 890, Words: 30, Lines: 15]
 v1                       [Status: 301, Size: 169, Words: 5, Lines: 8]
 ```
 
-**Dengan konten halaman** (lebih akurat, memakai lebih banyak token):
+AI melihat URL `/api/` dan headers target, lalu otomatis generate wordlist berisi path yang relevan seperti `admin`, `login`, `v1`, dll. Tinggal duduk manis lihat hasilnya.
+
+**Dengan konten halaman** (lebih akurat, AI baca isi halaman target juga):
 
 ```bash
 python3 ffufai.py --wordlists --include-response -u https://target.com/FUZZ -mc all -c
+```
+
+**Atur ukuran wordlist:**
+
+```bash
+# Wordlist 50 entry (lebih cepat)
+python3 ffufai.py --wordlists --max-wordlist-size 50 -u https://target.com/FUZZ -mc all -c
+
+# Wordlist 500 entry (lebih lengkap)
+python3 ffufai.py --wordlists --max-wordlist-size 500 -u https://target.com/FUZZ -mc all -c
+```
+
+### Mode 2: AI Extension Suggestion
+
+**Kapan dipakai:** Kamu sudah punya wordlist sendiri dan ingin AI menyarankan extension file yang relevan (misal `.php`, `.bak`, `.json`) untuk fuzzing yang lebih lengkap.
+
+**Cara kerja:** AI menganalisis URL + headers target, lalu menyarankan extension yang paling mungkin ada di server. Extension ini otomatis ditambahkan ke setiap kata di wordlist kamu saat fuzzing.
+
+```bash
+python3 ffufai.py -u https://target.com/FUZZ -w wordlist.txt -mc all -c
+```
+
+**Contoh nyata:**
+
+```bash
+python3 ffufai.py -u https://target.com/FUZZ -w /usr/share/seclists/Discovery/Web-Content/common.txt -mc all -c
+```
+
+Output yang muncul:
+```
+{'extensions': ['.json', '.js', '.bak', '.sql']}
+
+        /'___\  /'___\           /'___\
+       /\ \__/ /\ \__/  __  __  /\ \__/
+       ...
+________________________________________________
+
+ :: URL              : https://target.com/FUZZ
+ :: Wordlist         : FUZZ: /usr/share/seclists/Discovery/Web-Content/common.txt
+ :: Extensions       : .json,.js,.bak,.sql
+________________________________________________
+...hasil fuzzing...
+```
+
+AI mendeteksi bahwa extension `.json`, `.js`, `.bak`, `.sql` paling relevan untuk target ini. ffuf otomatis fuzzing setiap kata di wordlist + keempat extension tersebut.
+
+**Tambah jumlah extension:**
+
+```bash
+python3 ffufai.py --max-extensions 8 -u https://target.com/FUZZ -w wordlist.txt -mc all -c
 ```
 
 ### Tips: Target SPA (React, Vue, dll)
@@ -353,33 +365,41 @@ Cara mengetahui size yang harus difilter: jalankan tanpa `-fs` dulu, lihat size 
 
 ## Contoh Penggunaan Lengkap
 
+> Jika sudah buat file `.env`, tidak perlu `--api-key` lagi. Langsung jalankan perintah di bawah.
+
 ```bash
-# Extension suggestion dengan wordlist (API key via CLI)
-python3 ffufai.py --api-key 'key-kamu' --api-base-url 'https://api.z.ai/api/anthropic' -u https://target.com/FUZZ -w /path/to/wordlist.txt -mc all -c
+# === AI Wordlist Generation (tidak perlu wordlist file) ===
 
-# Extension suggestion dengan lebih banyak extension
-python3 ffufai.py --api-key 'key-kamu' --api-base-url 'https://api.z.ai/api/anthropic' --max-extensions 8 -u https://target.com/FUZZ -w wordlist.txt -mc all -c
+# AI bikin wordlist, langsung fuzzing
+python3 ffufai.py --wordlists -u https://target.com/FUZZ -mc all -c
 
-# Wordlist generation (AI buat wordlist)
+# Wordlist lebih banyak (100 entry)
+python3 ffufai.py --wordlists --max-wordlist-size 100 -u https://target.com/FUZZ -mc all -c
+
+# AI baca konten halaman untuk wordlist lebih akurat
+python3 ffufai.py --wordlists --include-response -u https://target.com/FUZZ -mc all -c
+
+# Fuzzing subdirectory
+python3 ffufai.py --wordlists -u https://target.com/static/js/FUZZ -mc all -c
+
+# Target SPA, filter response size
+python3 ffufai.py --wordlists -u https://target.com/FUZZ -mc all -fs 10018 -c
+
+# === AI Extension Suggestion (butuh wordlist file) ===
+
+# AI sarankan extension, fuzzing dengan wordlist kamu
+python3 ffufai.py -u https://target.com/FUZZ -w wordlist.txt -mc all -c
+
+# Lebih banyak extension
+python3 ffufai.py --max-extensions 8 -u https://target.com/FUZZ -w wordlist.txt -mc all -c
+
+# === Lainnya ===
+
+# API key via CLI (kalau belum buat .env)
 python3 ffufai.py --api-key 'key-kamu' --api-base-url 'https://api.z.ai/api/anthropic' --wordlists -u https://target.com/FUZZ -mc all -c
 
-# Wordlist generation dengan ukuran custom
-python3 ffufai.py --api-key 'key-kamu' --api-base-url 'https://api.z.ai/api/anthropic' --wordlists --max-wordlist-size 100 -u https://target.com/FUZZ -mc all -c
-
-# Wordlist generation dengan konten halaman sebagai konteks
-python3 ffufai.py --api-key 'key-kamu' --api-base-url 'https://api.z.ai/api/anthropic' --wordlists --include-response -u https://target.com/FUZZ -mc all -c
-
-# Fuzzing subdirectory dengan AI wordlist
-python3 ffufai.py --api-key 'key-kamu' --api-base-url 'https://api.z.ai/api/anthropic' --wordlists -u https://target.com/static/js/FUZZ -mc all -c
-
-# Fuzzing dengan filter size (SPA target)
-python3 ffufai.py --api-key 'key-kamu' --api-base-url 'https://api.z.ai/api/anthropic' --wordlists -u https://target.com/FUZZ -mc all -fs 10018 -c
-
 # ffuf di lokasi custom
-python3 ffufai.py --api-key 'key-kamu' --ffuf-path /home/user/go/bin/ffuf -u https://target.com/FUZZ -w wordlist.txt
-
-# Jika API key sudah diset via environment variable, tidak perlu --api-key
-python3 ffufai.py -u https://target.com/FUZZ -w wordlist.txt -mc all -c
+python3 ffufai.py --ffuf-path /home/user/go/bin/ffuf --wordlists -u https://target.com/FUZZ -mc all -c
 ```
 
 ---
