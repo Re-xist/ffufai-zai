@@ -131,32 +131,61 @@ pip3 install requests openai anthropic beautifulsoup4
 
 ### Langkah 6: Setup API Key
 
-Pilih salah satu provider AI di bawah. Tool akan otomatis mendeteksi API key mana yang tersedia.
+Ada **2 cara** untuk mengatur API key: via command line (langsung) atau via environment variable.
 
-#### Opsi A: Z.ai (Direkomendasikan untuk pengguna Indonesia)
+### Cara 1: Via Command Line (Direkomendasikan)
+
+Langsung input API key saat menjalankan perintah tanpa perlu export:
+
+#### Z.ai (Direkomendasikan untuk pengguna Indonesia)
 
 1. Dapatkan API key z.ai di: https://z.ai/manage-apikey/apikey-list
 2. Atau beli API key murah via: https://apikuy.my.id/
-3. Set environment variable:
+
+```bash
+python3 ffufai.py --api-key 'api-key-kamu' --api-base-url 'https://api.z.ai/api/anthropic' -u https://target.com/FUZZ -w wordlist.txt -mc all -c
+```
+
+#### Anthropic (Claude)
+
+```bash
+python3 ffufai.py --api-key 'sk-ant-xxxxx' -u https://target.com/FUZZ -w wordlist.txt -mc all -c
+```
+
+#### OpenAI (GPT)
+
+```bash
+python3 ffufai.py --api-key 'sk-xxxxx' --api-type openai -u https://target.com/FUZZ -w wordlist.txt -mc all -c
+```
+
+> **Auto-detect:** Jika `--api-key` diberikan tanpa `--api-type`, tool otomatis mendeteksi:
+> - Ada `--api-base-url` → z.ai
+> - Tanpa `--api-base-url` → Anthropic
+
+### Cara 2: Via Environment Variable
+
+Set environment variable agar tidak perlu input ulang setiap kali:
+
+#### Z.ai
 
 ```bash
 export ANTHROPIC_AUTH_TOKEN='paste-api-key-kamu-disini'
 export ANTHROPIC_BASE_URL='https://api.z.ai/api/anthropic'
 ```
 
-#### Opsi B: Anthropic (Claude)
+#### Anthropic (Claude)
 
 ```bash
 export ANTHROPIC_API_KEY='paste-api-key-anthropic-kamu-disini'
 ```
 
-#### Opsi C: OpenAI (GPT)
+#### OpenAI (GPT)
 
 ```bash
 export OPENAI_API_KEY='paste-api-key-openai-kamu-disini'
 ```
 
-**Buat API key permanen** (tidak hilang saat terminal ditutup):
+**Buat permanen** (tidak hilang saat terminal ditutup):
 
 ```bash
 # Contoh untuk z.ai
@@ -188,6 +217,8 @@ Harusnya muncul output:
 usage: ffufai.py [-h] [--ffuf-path FFUF_PATH]
                  [--max-extensions MAX_EXTENSIONS] [--wordlists]
                  [--max-wordlist-size MAX_WORDLIST_SIZE] [--include-response]
+                 [--api-key API_KEY] [--api-base-url API_BASE_URL]
+                 [--api-type {openai,anthropic,zai}]
 
 ffufai - AI-powered ffuf wrapper
 ...
@@ -294,29 +325,32 @@ Cara mengetahui size yang harus difilter: jalankan tanpa `-fs` dulu, lihat size 
 ## Contoh Penggunaan Lengkap
 
 ```bash
-# Extension suggestion dengan wordlist
-python3 ffufai.py -u https://target.com/FUZZ -w /path/to/wordlist.txt -mc all -c
+# Extension suggestion dengan wordlist (API key via CLI)
+python3 ffufai.py --api-key 'key-kamu' --api-base-url 'https://api.z.ai/api/anthropic' -u https://target.com/FUZZ -w /path/to/wordlist.txt -mc all -c
 
 # Extension suggestion dengan lebih banyak extension
-python3 ffufai.py --max-extensions 8 -u https://target.com/FUZZ -w wordlist.txt -mc all -c
+python3 ffufai.py --api-key 'key-kamu' --api-base-url 'https://api.z.ai/api/anthropic' --max-extensions 8 -u https://target.com/FUZZ -w wordlist.txt -mc all -c
 
 # Wordlist generation (AI buat wordlist)
-python3 ffufai.py --wordlists -u https://target.com/FUZZ -mc all -c
+python3 ffufai.py --api-key 'key-kamu' --api-base-url 'https://api.z.ai/api/anthropic' --wordlists -u https://target.com/FUZZ -mc all -c
 
 # Wordlist generation dengan ukuran custom
-python3 ffufai.py --wordlists --max-wordlist-size 100 -u https://target.com/FUZZ -mc all -c
+python3 ffufai.py --api-key 'key-kamu' --api-base-url 'https://api.z.ai/api/anthropic' --wordlists --max-wordlist-size 100 -u https://target.com/FUZZ -mc all -c
 
 # Wordlist generation dengan konten halaman sebagai konteks
-python3 ffufai.py --wordlists --include-response -u https://target.com/FUZZ -mc all -c
+python3 ffufai.py --api-key 'key-kamu' --api-base-url 'https://api.z.ai/api/anthropic' --wordlists --include-response -u https://target.com/FUZZ -mc all -c
 
 # Fuzzing subdirectory dengan AI wordlist
-python3 ffufai.py --wordlists -u https://target.com/static/js/FUZZ -mc all -c
+python3 ffufai.py --api-key 'key-kamu' --api-base-url 'https://api.z.ai/api/anthropic' --wordlists -u https://target.com/static/js/FUZZ -mc all -c
 
 # Fuzzing dengan filter size (SPA target)
-python3 ffufai.py --wordlists -u https://target.com/FUZZ -mc all -fs 10018 -c
+python3 ffufai.py --api-key 'key-kamu' --api-base-url 'https://api.z.ai/api/anthropic' --wordlists -u https://target.com/FUZZ -mc all -fs 10018 -c
 
 # ffuf di lokasi custom
-python3 ffufai.py --ffuf-path /home/user/go/bin/ffuf -u https://target.com/FUZZ -w wordlist.txt
+python3 ffufai.py --api-key 'key-kamu' --ffuf-path /home/user/go/bin/ffuf -u https://target.com/FUZZ -w wordlist.txt
+
+# Jika API key sudah diset via environment variable, tidak perlu --api-key
+python3 ffufai.py -u https://target.com/FUZZ -w wordlist.txt -mc all -c
 ```
 
 ---
@@ -327,6 +361,9 @@ python3 ffufai.py --ffuf-path /home/user/go/bin/ffuf -u https://target.com/FUZZ 
 
 | Parameter | Default | Deskripsi |
 |---|---|---|
+| `--api-key` | - | API key langsung via CLI (Anthropic, OpenAI, atau z.ai) |
+| `--api-base-url` | - | API base URL (wajib untuk z.ai) |
+| `--api-type` | auto-detect | Pilih provider: `openai`, `anthropic`, atau `zai` |
 | `--ffuf-path` | `ffuf` | Path ke binary ffuf |
 | `--max-extensions` | `4` | Jumlah maksimum extension yang disarankan AI |
 | `--wordlists` | - | Aktifkan mode wordlist generation |
@@ -354,7 +391,7 @@ Semua parameter ffuf lainnya bisa dipakai seperti biasa. Lihat `ffuf -h` untuk d
 
 ## Prioritas API Key
 
-Jika beberapa API key tersedia sekaligus, tool memakai prioritas:
+**CLI arguments** (`--api-key`) diprioritaskan daripada environment variable. Jika keduanya tidak diset, tool memakai prioritas berikut untuk environment variable:
 
 1. **z.ai** (`ANTHROPIC_AUTH_TOKEN` + `ANTHROPIC_BASE_URL`) - diprioritaskan
 2. **Anthropic** (`ANTHROPIC_API_KEY`)
@@ -369,7 +406,7 @@ Jika beberapa API key tersedia sekaligus, tool memakai prioritas:
 | `command not found: ffuf` | Install ffuf (Langkah 3) atau gunakan `--ffuf-path /path/ke/ffuf` |
 | `command not found: python3` | Install Python 3 (Langkah 1) |
 | `No module named 'openai'` | Jalankan `pip install requests openai anthropic beautifulsoup4` |
-| `No API key found` | Set environment variable API key (Langkah 6) |
+| `No API key found` | Gunakan `--api-key` atau set environment variable (Langkah 6) |
 | `Error parsing AI response` | Response AI tidak valid, coba jalankan ulang |
 | `Too many redirects` | Tool sudah menangani otomatis. Pastikan URL target benar |
 | Semua response 200 size sama | Target adalah SPA. Tambahkan `-fs <size>` untuk filter |
@@ -380,6 +417,7 @@ Jika beberapa API key tersedia sekaligus, tool memakai prioritas:
 ## Perubahan dari ffufai Original
 
 - Dukungan **z.ai** via `ANTHROPIC_AUTH_TOKEN` + `ANTHROPIC_BASE_URL`
+- Input API key langsung via CLI: `--api-key`, `--api-base-url`, `--api-type`
 - `parse_json_response()` - menangani response AI yang dibungkus markdown code block
 - `create_anthropic_client()` - mendukung custom base URL untuk provider non-OpenAI
 - Fix redirect loop pada `get_headers()` dengan timeout dan fallback
