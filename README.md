@@ -131,30 +131,57 @@ pip3 install requests openai anthropic beautifulsoup4
 
 ### Langkah 6: Setup API Key
 
-Ada **2 cara** untuk mengatur API key: via command line (langsung) atau via environment variable.
+Ada **3 cara** untuk mengatur API key. Pilih yang paling nyaman.
 
-### Cara 1: Via Command Line (Direkomendasikan)
+### Cara 1: Via .env File (Paling Mudah)
 
-Langsung input API key saat menjalankan perintah tanpa perlu export:
-
-#### Z.ai (Direkomendasikan untuk pengguna Indonesia)
-
-1. Dapatkan API key z.ai di: https://z.ai/manage-apikey/apikey-list
-2. Atau beli API key murah via: https://apikuy.my.id/
+Buat file `.env` di folder ffufai-zai, sekali buat dan langsung pakai tanpa perlu input ulang:
 
 ```bash
+# Di folder ffufai-zai, buat file .env
+cat > .env << 'EOF'
+ANTHROPIC_AUTH_TOKEN=api-key-kamu
+ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic
+EOF
+```
+
+Contoh isi `.env` sesuai provider:
+
+**Z.ai** (Direkomendasikan untuk pengguna Indonesia):
+
+Dapatkan API key di: https://z.ai/manage-apikey/apikey-list atau beli via: https://apikuy.my.id/
+
+```
+ANTHROPIC_AUTH_TOKEN=api-key-kamu
+ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic
+```
+
+**Anthropic (Claude):**
+
+```
+ANTHROPIC_API_KEY=sk-ant-xxxxx
+```
+
+**OpenAI (GPT):**
+
+```
+OPENAI_API_KEY=sk-xxxxx
+```
+
+> File `.env` sudah masuk `.gitignore` jadi aman, tidak akan ter-push ke GitHub. Setelah dibuat, langsung jalankan `python3 ffufai.py` tanpa perlu tambahan apa-apa.
+
+### Cara 2: Via Command Line
+
+Langsung input API key saat menjalankan perintah:
+
+```bash
+# Z.ai
 python3 ffufai.py --api-key 'api-key-kamu' --api-base-url 'https://api.z.ai/api/anthropic' -u https://target.com/FUZZ -w wordlist.txt -mc all -c
-```
 
-#### Anthropic (Claude)
-
-```bash
+# Anthropic
 python3 ffufai.py --api-key 'sk-ant-xxxxx' -u https://target.com/FUZZ -w wordlist.txt -mc all -c
-```
 
-#### OpenAI (GPT)
-
-```bash
+# OpenAI
 python3 ffufai.py --api-key 'sk-xxxxx' --api-type openai -u https://target.com/FUZZ -w wordlist.txt -mc all -c
 ```
 
@@ -162,26 +189,19 @@ python3 ffufai.py --api-key 'sk-xxxxx' --api-type openai -u https://target.com/F
 > - Ada `--api-base-url` → z.ai
 > - Tanpa `--api-base-url` → Anthropic
 
-### Cara 2: Via Environment Variable
+### Cara 3: Via Environment Variable
 
 Set environment variable agar tidak perlu input ulang setiap kali:
 
-#### Z.ai
-
 ```bash
+# Z.ai
 export ANTHROPIC_AUTH_TOKEN='paste-api-key-kamu-disini'
 export ANTHROPIC_BASE_URL='https://api.z.ai/api/anthropic'
-```
 
-#### Anthropic (Claude)
-
-```bash
+# Anthropic
 export ANTHROPIC_API_KEY='paste-api-key-anthropic-kamu-disini'
-```
 
-#### OpenAI (GPT)
-
-```bash
+# OpenAI
 export OPENAI_API_KEY='paste-api-key-openai-kamu-disini'
 ```
 
@@ -391,7 +411,11 @@ Semua parameter ffuf lainnya bisa dipakai seperti biasa. Lihat `ffuf -h` untuk d
 
 ## Prioritas API Key
 
-**CLI arguments** (`--api-key`) diprioritaskan daripada environment variable. Jika keduanya tidak diset, tool memakai prioritas berikut untuk environment variable:
+1. **CLI arguments** (`--api-key`) - prioritas tertinggi
+2. **`.env` file** - otomatis dibaca dari folder script
+3. **Environment variable** - `export` di terminal
+
+Jika ada beberapa API key tersedia, tool memakai prioritas berikut untuk provider:
 
 1. **z.ai** (`ANTHROPIC_AUTH_TOKEN` + `ANTHROPIC_BASE_URL`) - diprioritaskan
 2. **Anthropic** (`ANTHROPIC_API_KEY`)
@@ -406,7 +430,7 @@ Semua parameter ffuf lainnya bisa dipakai seperti biasa. Lihat `ffuf -h` untuk d
 | `command not found: ffuf` | Install ffuf (Langkah 3) atau gunakan `--ffuf-path /path/ke/ffuf` |
 | `command not found: python3` | Install Python 3 (Langkah 1) |
 | `No module named 'openai'` | Jalankan `pip install requests openai anthropic beautifulsoup4` |
-| `No API key found` | Gunakan `--api-key` atau set environment variable (Langkah 6) |
+| `No API key found` | Buat file `.env`, gunakan `--api-key`, atau set environment variable (Langkah 6) |
 | `Error parsing AI response` | Response AI tidak valid, coba jalankan ulang |
 | `Too many redirects` | Tool sudah menangani otomatis. Pastikan URL target benar |
 | Semua response 200 size sama | Target adalah SPA. Tambahkan `-fs <size>` untuk filter |
