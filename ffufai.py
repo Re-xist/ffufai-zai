@@ -10,11 +10,28 @@ from openai import OpenAI
 import anthropic
 from urllib.parse import urlparse
 import tempfile
-import os
+from pathlib import Path
 from bs4 import BeautifulSoup
 
+def load_env():
+    env_path = Path(__file__).resolve().parent / '.env'
+    if env_path.exists():
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip().strip("'\"")
+                    if key not in os.environ:
+                        os.environ[key] = value
+
 def get_api_key(cli_api_key=None, cli_api_base_url=None, cli_api_type=None):
-    # Priority: CLI args > environment variables
+    load_env()
+
+    # Priority: CLI args > environment variables (.env file already loaded into env)
     if cli_api_key:
         if cli_api_type == 'openai':
             return ('openai', cli_api_key, None)
@@ -44,7 +61,10 @@ def get_api_key(cli_api_key=None, cli_api_base_url=None, cli_api_type=None):
     elif openai_key:
         return ('openai', openai_key, None)
     else:
-        raise ValueError("No API key found. Use --api-key or set ANTHROPIC_AUTH_TOKEN+ANTHROPIC_BASE_URL (z.ai), ANTHROPIC_API_KEY, or OPENAI_API_KEY.")
+        raise ValueError("No API key found. Use --api-key, create a .env file, or set environment variables.\n"
+                         "Example .env file:\n"
+                         "  ANTHROPIC_AUTH_TOKEN=your-key\n"
+                         "  ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic")
 
 
 def get_response(url):
