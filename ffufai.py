@@ -13,7 +13,24 @@ import tempfile
 import os
 from bs4 import BeautifulSoup
 
-def get_api_key():
+def get_api_key(cli_api_key=None, cli_api_base_url=None, cli_api_type=None):
+    # Priority: CLI args > environment variables
+    if cli_api_key:
+        if cli_api_type == 'openai':
+            return ('openai', cli_api_key, None)
+        elif cli_api_type == 'anthropic':
+            return ('anthropic', cli_api_key, None)
+        elif cli_api_type == 'zai':
+            if not cli_api_base_url:
+                raise ValueError("--api-base-url is required when --api-type is 'zai'.")
+            return ('zai', cli_api_key, cli_api_base_url)
+        else:
+            # Auto-detect based on whether base_url is provided
+            if cli_api_base_url:
+                return ('zai', cli_api_key, cli_api_base_url)
+            else:
+                return ('anthropic', cli_api_key, None)
+
     openai_key = os.getenv('OPENAI_API_KEY')
     anthropic_key = os.getenv('ANTHROPIC_API_KEY')
     # z.ai uses ANTHROPIC_AUTH_TOKEN + ANTHROPIC_BASE_URL
@@ -27,7 +44,7 @@ def get_api_key():
     elif openai_key:
         return ('openai', openai_key, None)
     else:
-        raise ValueError("No API key found. Please set ANTHROPIC_AUTH_TOKEN+ANTHROPIC_BASE_URL (z.ai), ANTHROPIC_API_KEY, or OPENAI_API_KEY.")
+        raise ValueError("No API key found. Use --api-key or set ANTHROPIC_AUTH_TOKEN+ANTHROPIC_BASE_URL (z.ai), ANTHROPIC_API_KEY, or OPENAI_API_KEY.")
 
 
 def get_response(url):
@@ -225,6 +242,9 @@ def main():
     parser.add_argument('--wordlists', action='store_true', help='Generate contextual wordlists')
     parser.add_argument('--max-wordlist-size', type=int, help="The maximum size of the generated wordlist")
     parser.add_argument('--include-response', action='store_true', help='Makes a GET request and uses the Response as context for better wordlist generation (Uses More tokens)')
+    parser.add_argument('--api-key', help='API key (Anthropic, OpenAI, or z.ai)')
+    parser.add_argument('--api-base-url', help='API base URL (required for z.ai)')
+    parser.add_argument('--api-type', choices=['openai', 'anthropic', 'zai'], help='API type (auto-detected if omitted)')
     args, unknown = parser.parse_known_args()
 
     # Find the -u argument in the unknown args
@@ -244,7 +264,11 @@ def main():
 
     headers = get_headers(base_url)
 
-    api_type, api_key, api_base_url = get_api_key()
+    api_type, api_key, api_base_url = get_api_key(
+        cli_api_key=args.api_key,
+        cli_api_base_url=args.api_base_url,
+        cli_api_type=args.api_type
+    )
 
 
     if args.wordlists:
