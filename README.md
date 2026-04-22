@@ -138,7 +138,16 @@ Ada **3 cara** untuk mengatur API key. Pilih yang paling nyaman.
 Buat file `.env` di folder ffufai-zai, sekali buat dan langsung pakai tanpa perlu input ulang:
 
 ```bash
-# Di folder ffufai-zai, buat file .env
+# Cara cepat: copy dari .env.example
+cp .env.example .env
+
+# Lalu edit dan isi API key kamu
+nano .env
+```
+
+Atau buat manual:
+
+```bash
 cat > .env << 'EOF'
 ANTHROPIC_AUTH_TOKEN=api-key-kamu
 ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic
