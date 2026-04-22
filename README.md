@@ -35,6 +35,8 @@ Secara sederhana, ffufai-zai melakukan hal berikut:
 - Dukungan **3 provider AI**: z.ai, Anthropic, dan OpenAI
 - **Extension Suggestion** - AI menganalisis target dan menyarankan extension file yang relevan
 - **Wordlist Generation** - AI membuat wordlist kontekstual berdasarkan teknologi dan konten target
+- **Auto-Save Wordlist** - Wordlist otomatis tersimpan per target, bisa di-reuse untuk scan berikutnya
+- **Smart Merge** - Gabung wordlist AI dengan saved wordlist dan wordlist external (misal SecLists)
 - Semua parameter ffuf diteruskan langsung
 - Handle redirect loop pada target SPA
 
@@ -248,6 +250,7 @@ usage: ffufai.py [-h] [--ffuf-path FFUF_PATH]
                  [--max-wordlist-size MAX_WORDLIST_SIZE] [--include-response]
                  [--api-key API_KEY] [--api-base-url API_BASE_URL]
                  [--api-type {openai,anthropic,zai}]
+                 [--merge WORDLIST_PATH]
 
 ffufai - AI-powered ffuf wrapper
 ...
@@ -309,6 +312,37 @@ python3 ffufai.py --wordlists --max-wordlist-size 50 -u https://target.com/FUZZ 
 # Wordlist 500 entry (lebih lengkap)
 python3 ffufai.py --wordlists --max-wordlist-size 500 -u https://target.com/FUZZ -mc all -c
 ```
+
+**Auto-Save & Reuse:**
+
+Wordlist yang dihasilkan AI otomatis tersimpan di folder `wordlists/` berdasarkan domain target. Scan berikutnya ke target yang sama akan otomatis menggabungkan wordlist lama dengan hasil AI baru (tanpa duplikat).
+
+```bash
+# Scan pertama → AI generate wordlist → simpan ke wordlists/target.com.txt
+python3 ffufai.py --wordlists -u https://target.com/FUZZ -mc all -c
+
+# Scan kedua → AI generate baru → merge dengan yang tersimpan → simpan → fuzzing
+python3 ffufai.py --wordlists -u https://target.com/FUZZ -mc all -c
+```
+
+Struktur folder:
+```
+wordlists/
+  target.com.txt          # wordlist gabungan (saved + AI)
+  shop.example.com.txt
+```
+
+> Folder `wordlists/` sudah masuk `.gitignore` jadi tidak akan ter-push ke repository.
+
+**Merge dengan Wordlist External:**
+
+Gunakan `--merge` untuk menggabungkan saved wordlist dengan file wordlist external seperti SecLists:
+
+```bash
+python3 ffufai.py --wordlists --merge /usr/share/seclists/Discovery/Web-Content/common.txt -u https://target.com/FUZZ -mc all -c
+```
+
+Hasilnya: AI words + saved words + SecLists → digabung tanpa duplikat → disimpan ke `wordlists/target.com.txt` → langsung fuzzing.
 
 ### Mode 2: AI Extension Suggestion
 
@@ -385,6 +419,9 @@ python3 ffufai.py --wordlists -u https://target.com/static/js/FUZZ -mc all -c
 # Target SPA, filter response size
 python3 ffufai.py --wordlists -u https://target.com/FUZZ -mc all -fs 10018 -c
 
+# Merge AI wordlist dengan SecLists
+python3 ffufai.py --wordlists --merge /usr/share/seclists/Discovery/Web-Content/common.txt -u https://target.com/FUZZ -mc all -c
+
 # === AI Extension Suggestion (butuh wordlist file) ===
 
 # AI sarankan extension, fuzzing dengan wordlist kamu
@@ -418,6 +455,7 @@ python3 ffufai.py --ffuf-path /home/user/go/bin/ffuf --wordlists -u https://targ
 | `--wordlists` | - | Aktifkan mode wordlist generation |
 | `--max-wordlist-size` | `200` | Ukuran maks wordlist yang dihasilkan AI |
 | `--include-response` | - | Sertakan response body sebagai konteks untuk AI |
+| `--merge` | - | Gabung saved wordlist dengan file wordlist external (misal SecLists) |
 
 ### Parameter ffuf yang Sering Dipakai
 

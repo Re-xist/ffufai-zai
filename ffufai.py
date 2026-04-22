@@ -255,6 +255,47 @@ def get_contextual_wordlist(url, headers, api_type, api_key, api_base_url, max_s
 
         return parse_json_response(message.content[0].text)
 
+def get_wordlist_path(url):
+    """Get the file path for a saved wordlist based on the URL's domain."""
+    domain = urlparse(url).netloc
+    if not domain:
+        domain = urlparse(url).hostname or "unknown"
+    wordlists_dir = Path(__file__).resolve().parent / 'wordlists'
+    return wordlists_dir / f"{domain}.txt"
+
+def get_saved_wordlist(url):
+    """Read a previously saved wordlist for the given URL's domain.
+    Returns a set of words, or an empty set if no saved wordlist exists."""
+    path = get_wordlist_path(url)
+    if path.exists():
+        with open(path, 'r') as f:
+            return set(line.strip() for line in f if line.strip())
+    return set()
+
+def save_wordlist(url, words):
+    """Save a wordlist to disk, one word per line, sorted.
+    Creates the wordlists/ directory if it doesn't exist."""
+    path = get_wordlist_path(url)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, 'w') as f:
+        for word in sorted(words):
+            f.write(word + '\n')
+
+def merge_wordlists(existing_words, new_words, external_path=None):
+    """Merge wordlists together, removing duplicates.
+    Combines existing_words + new_words, and optionally reads
+    and merges an external wordlist file."""
+    combined = existing_words.union(new_words)
+    if external_path:
+        ext_file = Path(external_path)
+        if ext_file.exists():
+            with open(ext_file, 'r') as f:
+                external_words = set(line.strip() for line in f if line.strip())
+                combined = combined.union(external_words)
+        else:
+            print(f"Warning: External wordlist '{external_path}' not found, skipping merge.")
+    return combined
+
 def main():
     parser = argparse.ArgumentParser(description='ffufai - AI-powered ffuf wrapper')
     parser.add_argument('--ffuf-path', default='ffuf', help='Path to ffuf executable')
@@ -265,6 +306,7 @@ def main():
     parser.add_argument('--api-key', help='API key (Anthropic, OpenAI, or z.ai)')
     parser.add_argument('--api-base-url', help='API base URL (required for z.ai)')
     parser.add_argument('--api-type', choices=['openai', 'anthropic', 'zai'], help='API type (auto-detected if omitted)')
+    parser.add_argument('--merge', metavar='WORDLIST_PATH', help='Merge saved wordlist with an external wordlist file (e.g. SecLists)')
     args, unknown = parser.parse_known_args()
 
     # Find the -u argument in the unknown args
@@ -298,6 +340,12 @@ def main():
             else:
                 size = 200
 
+            # Step 1: Read saved wordlist if it exists
+            saved_words = get_saved_wordlist(url)
+            if saved_words:
+                print(f"[*] Found saved wordlist with {len(saved_words)} entries for this target")
+
+            # Step 2: AI generate new wordlist
             if args.include_response:
                 response = get_response(base_url)
                 headers = response['headers']
@@ -309,7 +357,19 @@ def main():
                 wordlists_data = get_contextual_wordlist(url, headers, api_type, api_key, api_base_url, size)
 
             print(wordlists_data)
-            wordlist = '\n'.join(wordlists_data['wordlist'])
+            new_words = set(wordlists_data['wordlist'])
+
+            # Step 3: Merge saved + AI result + external (if --merge)
+            merged_words = merge_wordlists(saved_words, new_words, external_path=args.merge)
+
+            print(f"[*] Wordlist: {len(new_words)} AI-generated + {len(saved_words)} saved = {len(merged_words)} total (deduplicated)")
+
+            # Step 4: Save merged wordlist
+            save_wordlist(url, merged_words)
+            saved_path = get_wordlist_path(url)
+            print(f"[*] Saved wordlist to {saved_path}")
+
+            wordlist = '\n'.join(sorted(merged_words))
 
         except (json.JSONDecodeError, KeyError) as e:
             print(f"Error parsing AI response. The Wordlist size may have been too big for your max_tokens. Try again. Error: {e}")
